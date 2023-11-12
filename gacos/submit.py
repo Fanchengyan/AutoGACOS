@@ -13,7 +13,7 @@ import rasterio
 import requests
 from tqdm import tqdm
 
-from .dataset_info import LiCSARDatasetInfo, SarDatasetInfo
+from .dataset_info import SarDatasetInfo
 
 
 class GACOS:
