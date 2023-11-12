@@ -8,7 +8,6 @@ from email.utils import parseaddr
 from pathlib import Path
 from typing import Literal, Optional, Union
 
-import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 

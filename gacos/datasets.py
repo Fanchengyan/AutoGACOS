@@ -4,22 +4,31 @@ from typing import Optional, Union
 import numpy as np
 import pandas as pd
 import rasterio
-from tqdm.auto import tqdm
 
 
-class SarDatasetInfo:
-    def __init__(self, bounds, time, dates, email) -> None:
+class SarDataset:
+    def __init__(
+        self,
+        bounds: tuple[float, float, float, float],
+        time: tuple[int, int],
+        dates: np.ndarray,
+    ) -> None:
         self.bounds = bounds
         self.time = time
         self.dates = dates
         self.date_patches = self.get_date_patches()
-        self.email = email
 
     def __str__(self) -> str:
-        return f"{self.post_data}"
+        return (
+            f"{self.__class__.__name__}(\n"
+            f"    bounds={self.bounds}, \n"
+            f"    time={self.time}, \n"
+            f"    dates={len(self.dates)}\n"
+            ")"
+        )
 
     def __repr__(self) -> str:
-        return f"{self.post_data}"
+        return self.__str__()
 
     def get_date_patches(self):
         """Get the dates patch.
@@ -35,13 +44,15 @@ class SarDatasetInfo:
 
         return dates_patch
 
-    def get_post_data(self, dates):
+    def get_post_data(self, dates: Union[list, np.ndarray], email: str):
         """Get the post data.
-        
+
         Parameters
         ----------
-        date : list
+        date : list or np.ndarray
             The list of dates.
+        email : str
+            The email address to receive the gacos data.
 
         Returns
         -------
@@ -50,7 +61,7 @@ class SarDatasetInfo:
         """
         if isinstance(dates, np.ndarray):
             dates = dates.tolist()
-            
+
         post_data = {
             "N": self.bounds[3],
             "W": self.bounds[0],
@@ -60,22 +71,19 @@ class SarDatasetInfo:
             "M": self.time[1],
             "date": "\n".join(dates),
             "type": "2",
-            "email": self.email,
+            "email": email,
         }
 
         return post_data
 
 
-class LiCSARDatasetInfo(SarDatasetInfo):
-    def __init__(
-        self,
-        home_dir: Union[Path, str],
-        email: str,
-    ) -> None:
+class LiCSARDataset(SarDataset):
+    def __init__(self, home_dir: Union[Path, str]) -> None:
         self.home_dir = Path(home_dir)
-        self.bounds = self.get_bounds()
-        self.time = self.get_time()
-        super().__init__(self.bounds, self.time, self.get_dates(), email)
+        bounds = self.get_bounds()
+        time = self.get_time()
+        dates = self.get_dates()
+        super().__init__(bounds, time, dates)
 
     def get_bounds(
         self, tif_pattern: str = "*.geo.hgt.tif"
@@ -102,12 +110,12 @@ class LiCSARDatasetInfo(SarDatasetInfo):
         return bounds
 
     def get_time(self):
-        """Get the acquisition time of the frame.
+        """Get the acquisition time of acquisitions.
 
         Returns
         -------
-        time: float
-            The acquisition time of the frame.
+        time: tuple[int, int]
+            A tuple of hour and minute representing the acquisition time.
 
         Raises
         ------
@@ -134,6 +142,9 @@ class LiCSARDatasetInfo(SarDatasetInfo):
                 raise ValueError(f"No center_time found in {meta_file}")
 
     def get_dates(self):
+        """Get all acquisition dates of the frame. The dates are parsed from
+        the ``baselines`` file and sorted in ascending order."""
+
         baseline_file = list(self.home_dir.rglob("baselines"))
         if len(baseline_file) == 0:
             raise ValueError(f"No baselines file found in {self.home_dir}")
@@ -150,8 +161,3 @@ class LiCSARDatasetInfo(SarDatasetInfo):
         dates = np.unique([df["secondary"], df["primary"]])
 
         return dates
-
-
-if __name__ == "__main__":
-    home_dir = Path("/Volumes/新加卷/jinping/055A_06018_131313")
-    dataset = LiCSARDatasetInfo(home_dir, email="fanchy14@lzu.edu.cn")
