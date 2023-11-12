@@ -1,5 +1,5 @@
 [project]
-name = "GACOSDownloader"
+name = "AutoGACOS"
 authors = [{name = "Fancy", email = "fanchengyan@outlook.com"}]
 description = "A library for automatically submitting and downloading GACOS data"
 version = "0.1.0"
@@ -20,5 +20,5 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Fanchengyan/GACOSDownloader"
-Repository = "https://github.com/Fanchengyan/GACOSDownloader"
+Homepage = "https://github.com/Fanchengyan/AutoGACOS"
+Repository = "https://github.com/Fanchengyan/AutoGACOS"
