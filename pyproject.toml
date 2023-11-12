@@ -1,0 +1,24 @@
+[project]
+name = "GACOSDownloader"
+authors = [{name = "Fancy", email = "fanchengyan@outlook.com"}]
+description = "A library for automatically submitting and downloading GACOS data"
+version = "0.1.0"
+requires-python = ">=3.6"
+dependencies = [
+    "data_downloader",
+    "pandas",
+    "tqdm",
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = ["GACOS", "data", "downloader"]
+
+
+[project.optional-dependencies]
+dev = [
+    "pytest"
+]
+
+[project.urls]
+Homepage = "https://github.com/Fanchengyan/GACOSDownloader"
+Repository = "https://github.com/Fanchengyan/GACOSDownloader"
