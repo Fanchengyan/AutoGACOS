@@ -149,7 +149,7 @@ class LiCSARDataset(SarDataset):
                 raise ValueError(f"No center_time found in {meta_file}")
 
 
-class HyPe3Dataset(SarDataset):
+class HyP3Dataset(SarDataset):
     def __init__(self, home_dir: Union[Path, str]) -> None:
         self.dataset = HyP3(home_dir)
         bounds = self.dataset.bounds.to_crs("epsg:4326")
