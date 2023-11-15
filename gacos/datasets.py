@@ -4,7 +4,9 @@ from typing import Union
 import numpy as np
 import pandas as pd
 from faninsar.datasets import HyP3, LiCSAR
+import warnings
 
+warnings.filterwarnings("ignore")
 
 class SarDataset:
     def __init__(
@@ -147,7 +149,7 @@ class LiCSARDataset(SarDataset):
                 raise ValueError(f"No center_time found in {meta_file}")
 
 
-class Hype3Dataset(SarDataset):
+class HyPe3Dataset(SarDataset):
     def __init__(self, home_dir: Union[Path, str]) -> None:
         self.dataset = HyP3(home_dir)
         bounds = self.dataset.bounds.to_crs("epsg:4326")
