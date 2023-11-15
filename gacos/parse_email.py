@@ -2,6 +2,7 @@ import email
 import email.message
 import imaplib
 import poplib
+import getpass
 import re
 from email.parser import Parser
 from email.utils import parseaddr
@@ -27,6 +28,7 @@ class GACOSEmail:
         username: str,
         password: str,
         host: str,
+        prompt: bool = False,
         email_protocol: Literal["imap", "pop3"] = "imap",
         port: Optional[int] = None,
         gacos_email: str = "gacos2017@foxmail.com",
@@ -48,6 +50,9 @@ class GACOSEmail:
             The host of the email address. For example, the host of gmail for
             imap is "imap.gmail.com". You can find the host of your email
             settings or search it on the Internet.
+        prompt: bool, optional
+            Prompt for username and/or password interactively when they are not 
+            provided as keyword parameters. Default is False.
         email_protocol : str, one of ["imap", "pop3"], optional
             The protocol of the email. Default is "imap".
         port : int, optional
@@ -66,8 +71,12 @@ class GACOSEmail:
         ssl : bool, optional
             Whether to use SSL connection. Default is False.
         """
-        self.username = username
-        self.password = password
+        if prompt:
+            self.username = None
+            self.password = None
+        else:
+            self.username = username
+            self.password = password
         self.host = host
         self.email_protocol = email_protocol
         self.port = port
@@ -237,6 +246,11 @@ def get_content(messageObject):
 
 def login_in_email_pop3(username, password, host, port, ssl=False):
     try:
+        if username is None:
+            username = input("username: ")
+        if password is None:
+            password = getpass.getpass("password: ")
+
         if ssl:
             if port is None:
                 port = 995
@@ -245,6 +259,7 @@ def login_in_email_pop3(username, password, host, port, ssl=False):
             if port is None:
                 port = 110
             server = poplib.POP3(host, port)
+
         server.user(username)
         server.pass_(password)
         return server
@@ -255,6 +270,11 @@ def login_in_email_pop3(username, password, host, port, ssl=False):
 
 def login_in_email_imap(username, password, host, port, ssl=False):
     try:
+        if username is None:
+            username = input("username: ")
+        if password is None:
+            password = getpass.getpass("password: ")
+
         if ssl:
             if port is None:
                 port = 993
@@ -263,6 +283,7 @@ def login_in_email_imap(username, password, host, port, ssl=False):
             if port is None:
                 port = 143
             server = imaplib.IMAP4(host, port)
+
         server.login(username, password)
         return server
     except Exception as e:
@@ -315,4 +336,3 @@ def parse_gacos_info(msgBodyContents, gacos_suffix="tar.gz"):
         return None
     else:
         return url, south, north, west, east, date
-
