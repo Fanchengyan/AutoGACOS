@@ -1,28 +1,27 @@
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
-import rasterio
+from faninsar.datasets import HyP3, LiCSAR
 
 
 class SarDataset:
     def __init__(
         self,
         bounds: tuple[float, float, float, float],
-        time: tuple[int, int],
-        dates: np.ndarray,
+        date_time: pd.DatetimeIndex,
     ) -> None:
         self.bounds = bounds
-        self.time = time
-        self.dates = dates
-        self.date_patches = self.get_date_patches()
+        self._times = date_time.strftime("%H:%M")
+        self._dates = date_time.strftime("%Y%m%d")
+        self.datetime_patches = self._gen_datetime_patches(date_time)
 
     def __str__(self) -> str:
         return (
             f"{self.__class__.__name__}(\n"
             f"    bounds={self.bounds}, \n"
-            f"    time={self.time}, \n"
+            f"    times={len(set(self.times))}, \n"
             f"    dates={len(self.dates)}\n"
             ")"
         )
@@ -30,27 +29,55 @@ class SarDataset:
     def __repr__(self) -> str:
         return self.__str__()
 
-    def get_date_patches(self):
-        """Get the dates patch.
+    @property
+    def dates(self):
+        """The dates ('%Y%m%d') of the acquisitions parsed from dataset. """
+        return self._dates
+
+    @property
+    def times(self):
+        """The times ('%H:%M') of the acquisitions parsed from dataset."""
+        return self._times
+
+    def _gen_datetime_patches(self, date_time: pd.DatetimeIndex) -> dict:
+        """Generate datetime patches.
+
+        Parameters
+        ----------
+        date_time : pd.DatetimeIndex
+            The datetime index.
 
         Returns
         -------
-        dates_patch : list
-            The dates patch. Each element is a list of dates.
+        datetime_patches : dict
+            The datetime patches. The key is the time (HH:MM) and the value is
+            the datetime patches.
         """
         nums = 20
-        n_patch = np.ceil(len(self.dates) / nums)
-        dates_patch = np.array_split(self.dates, n_patch)
+        datetime_patches = {}
 
-        return dates_patch
+        for _dt in np.unique(self.times):
+            _dts = self.dates[self.times == _dt]
+            n_patch = np.ceil(len(_dts) / nums)
+            dates_patch = np.array_split(_dts, n_patch)
+            datetime_patches[_dt] = dates_patch
 
-    def get_post_data(self, dates: Union[list, np.ndarray], email: str):
-        """Get the post data.
+        return datetime_patches
+
+    def gen_post_data(
+        self,
+        dates: Union[list, np.ndarray],
+        time: Union[tuple[int, int], tuple[str, str]],
+        email: str,
+    ):
+        """Generate post data for gacos website.
 
         Parameters
         ----------
         date : list or np.ndarray
             The list of dates.
+        time : tuple[int, int]
+            The time of the acquisition (hour, minute).
         email : str
             The email address to receive the gacos data.
 
@@ -61,55 +88,33 @@ class SarDataset:
         """
         if isinstance(dates, np.ndarray):
             dates = dates.tolist()
+        time = [int(t) for t in time]
 
         post_data = {
             "N": self.bounds[3],
             "W": self.bounds[0],
             "S": self.bounds[1],
             "E": self.bounds[2],
-            "H": self.time[0],
-            "M": self.time[1],
+            "H": time[0],
+            "M": time[1],
             "date": "\n".join(dates),
             "type": "2",
             "email": email,
         }
-
         return post_data
 
 
 class LiCSARDataset(SarDataset):
     def __init__(self, home_dir: Union[Path, str]) -> None:
         self.home_dir = Path(home_dir)
-        bounds = self.get_bounds()
-        time = self.get_time()
-        dates = self.get_dates()
-        super().__init__(bounds, time, dates)
+        self.dataset = LiCSAR(home_dir)
+        bounds = self.dataset.bounds
+        time = self._get_time()
+        dates = self.dataset.pairs.dates
+        date_time = pd.to_datetime([f"{d} {time[0]}:{time[1]}:00" for d in dates])
+        super().__init__(bounds, date_time)
 
-    def get_bounds(
-        self, tif_pattern: str = "*.geo.hgt.tif"
-    ) -> tuple[float, float, float, float]:
-        """Get the bounds of the frame.
-        Parameters
-        ----------
-        tif_pattern: str, optional
-            The pattern of the tif file. Default is "*.geo.hgt.tif".
-
-        Returns
-        -------
-        bounds: tuple
-            The bounds of the frame.
-        """
-        tif_file = sorted(self.home_dir.rglob(tif_pattern))
-        if len(tif_file) == 0:
-            raise ValueError(f"No {tif_pattern} file found in {self.home_dir}")
-        else:
-            tif_file = tif_file[0]
-
-        with rasterio.open(tif_file) as ds:
-            bounds = ds.bounds
-        return bounds
-
-    def get_time(self):
+    def _get_time(self):
         """Get the acquisition time of acquisitions.
 
         Returns
@@ -141,23 +146,11 @@ class LiCSARDataset(SarDataset):
             if time is None:
                 raise ValueError(f"No center_time found in {meta_file}")
 
-    def get_dates(self):
-        """Get all acquisition dates of the frame. The dates are parsed from
-        the ``baselines`` file and sorted in ascending order."""
 
-        baseline_file = list(self.home_dir.rglob("baselines"))
-        if len(baseline_file) == 0:
-            raise ValueError(f"No baselines file found in {self.home_dir}")
+class Hype3Dataset(SarDataset):
+    def __init__(self, home_dir: Union[Path, str]) -> None:
+        self.dataset = HyP3(home_dir)
+        bounds = self.dataset.bounds.to_crs("epsg:4326")
+        date_time = self.dataset.datetime
 
-        baseline_file = baseline_file[0]
-        df = pd.read_csv(
-            baseline_file,
-            sep="\s",
-            engine="python",
-            header=None,
-            dtype=str,
-            names=["primary", "secondary", "b1", "b2"],
-        )
-        dates = np.unique([df["secondary"], df["primary"]])
-
-        return dates
+        super().__init__(bounds, date_time)
