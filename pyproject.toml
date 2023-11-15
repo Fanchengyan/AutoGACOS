@@ -1,7 +1,7 @@
 [project]
 name = "AutoGACOS"
 authors = [{name = "Fancy", email = "fanchengyan@outlook.com"}]
-description = "A library for automatically submitting and downloading GACOS data"
+description = "A Python library for automatically submitting and downloading GACOS data"
 version = "0.1.0"
 requires-python = ">=3.6"
 dependencies = [

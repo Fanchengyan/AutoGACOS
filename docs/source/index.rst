@@ -1,6 +1,6 @@
-====================================
-Welcome to FanInSAR's documentation!
-====================================
+=====================================
+Welcome to AutoGACOS's documentation!
+=====================================
 
 
 Introduction

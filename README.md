@@ -1,2 +1,2 @@
 # AutoGACOS
-A download library for automatically submitting and downloading GACOS data
+A Python library for automatically submitting and downloading GACOS data
