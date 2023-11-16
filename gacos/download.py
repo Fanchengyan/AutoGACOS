@@ -18,7 +18,7 @@ class Downloader:
         output_dir: Union[Path, str],
         tar_gz_dir: Optional[Union[Path, str]] = None,
         keep_original: bool = False,
-        time: Optional[float] = None,
+        times: Optional[Union[float, list[float]]] = None,
         bounds: Optional[tuple[float, float, float, float]] = None,
     ) -> None:
         """Initialize Downloader class
@@ -34,9 +34,10 @@ class Downloader:
             `output_dir` is used. Default is None.
         keep_original : bool, optional
             Whether to keep original files (*.tar.gz). Default is False.
-        time : Optional[float], optional
-            time of acquisition, used to filter out files that are not needed.
-            Default is None.
+        times : Optional[float], optional
+            times of acquisition, used to filter out files that are not needed.
+            this can be a single time or a list of times. times differ by less
+            than 10 minutes are considered the same. Default is None.
         bounds : Optional[tuple[float, float, float, float]], optional
             bounds of area of interest with order (W, S, E, N), used to filter
             out files that are not needed. Default is None.
@@ -61,14 +62,16 @@ class Downloader:
             mask_bbox = self._bbox_mask(BoundingBox(*bounds))
 
         # only keep urls that acquisition time is within 10 minutes of `time`
-        if time is not None:
-            mask_time = self._time_mask(time)
+        if times is not None:
+            if isinstance(times, float):
+                times = [times]
+            mask_time = self._time_mask(times)
 
-        if bounds is not None and time is not None:
+        if bounds is not None and times is not None:
             self.mask = mask_bbox & mask_time
         elif bounds is not None:
             self.mask = mask_bbox
-        elif time is not None:
+        elif times is not None:
             self.mask = mask_time
         else:
             self.mask = np.ones(self.df_urls.shape[0], dtype=bool)
@@ -87,19 +90,24 @@ class Downloader:
         )
         return intersection_bbox
 
-    def _time_mask(self, time) -> np.ndarray:
+    def _time_mask(self, times) -> np.ndarray:
         """Only keep urls that acquisition time is within 10 minutes of `time`"""
-        intersection_time = np.array(
-            np.abs(self.df_urls["time"].astype(float) - time)
-            <= 1 / 60 * 10  # 10 minutes
-        )
+        intersection_times = []
+        for time in times:
+            intersection_times.append(
+                np.array(
+                    np.abs(self.df_urls["time"].astype(float) - time)
+                    <= 1 / 60 * 10  # 10 minutes
+                )
+            )
+        intersection_time = np.any(intersection_times, axis=0)
         return intersection_time
 
     def download(self) -> None:
         """Download GACOS files from URLs in file created by :meth:`GACOSEmail.retrieve_gacos_urls`"""
         urls_used = self.df_urls[self.mask]["url"].values
 
-        for url in tqdm(urls_used):
+        for url in tqdm(urls_used, unit="file", desc="Downloading GACOS files"):
             gz_file = self.tar_gz_dir / Path(url).name
             downloader.download_data(url, file_name=gz_file)
             self._extract_tar_gz(gz_file)
