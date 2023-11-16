@@ -11,8 +11,8 @@ Introduction
    :caption: Contents:
 
    intro
-   User Guide <user_guide/index>
-   FanInSAR API Reference <api/index>
+   user_guide/quickstart
+   AutoGACOS API Reference <api/index>
    terminology
 
 

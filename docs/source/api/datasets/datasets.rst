@@ -7,22 +7,22 @@ the SAR images. We provide a set of classes to automatically retrieve the
 those information from well known InSAR datasets.
 
 Currently, the following InSAR Datasets are supported:
-   * :class:`.HyP3`
-   * :class:`.LiCSAR`
+   * :class:`.HyP3Dataset`
+   * :class:`.LiCSARDataset`
 
-HyP3
-----
+HyP3Dataset
+-----------
 
-.. autoclass:: gacos.HyP3
+.. autoclass:: gacos.HyP3Dataset
    :members:
    :undoc-members:
    :member-order: bysource
    :show-inheritance:
 
-LiCSAR
-------
+LiCSARDataset
+-------------
 
-.. autoclass:: gacos.LiCSAR
+.. autoclass:: gacos.LiCSARDataset
    :members:
    :undoc-members:
    :member-order: bysource
