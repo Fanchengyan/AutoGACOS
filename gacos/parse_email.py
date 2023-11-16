@@ -51,7 +51,7 @@ class GACOSEmail:
             imap is "imap.gmail.com". You can find the host of your email
             settings or search it on the Internet.
         prompt: bool, optional
-            Prompt for username and/or password interactively when they are not 
+            Prompt for username and/or password interactively when they are not
             provided as keyword parameters. Default is False.
         email_protocol : str, one of ["imap", "pop3"], optional
             The protocol of the email. Default is "imap".

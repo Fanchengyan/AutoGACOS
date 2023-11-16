@@ -1,12 +1,13 @@
+import warnings
 from pathlib import Path
 from typing import Union
 
 import numpy as np
 import pandas as pd
 from faninsar.datasets import HyP3, LiCSAR
-import warnings
 
 warnings.filterwarnings("ignore")
+
 
 class SarDataset:
     def __init__(
@@ -17,13 +18,14 @@ class SarDataset:
         self.bounds = bounds
         self._times = date_time.strftime("%H:%M")
         self._dates = date_time.strftime("%Y%m%d")
+        self._date_time = date_time
         self.datetime_patches = self._gen_datetime_patches(date_time)
 
     def __str__(self) -> str:
         return (
             f"{self.__class__.__name__}(\n"
             f"    bounds={self.bounds}, \n"
-            f"    times={len(set(self.times))}, \n"
+            f"    times={len(self.times)}, \n"
             f"    dates={len(self.dates)}\n"
             ")"
         )
@@ -33,13 +35,18 @@ class SarDataset:
 
     @property
     def dates(self):
-        """The dates ('%Y%m%d') of the acquisitions parsed from dataset. """
+        """The dates ('%Y%m%d') of the acquisitions parsed from dataset."""
         return self._dates
 
     @property
     def times(self):
         """The times ('%H:%M') of the acquisitions parsed from dataset."""
-        return self._times
+        return np.unique(self._times)
+
+    @property
+    def date_times(self):
+        """The datetime of the acquisitions parsed from dataset."""
+        return self._date_time
 
     def _gen_datetime_patches(self, date_time: pd.DatetimeIndex) -> dict:
         """Generate datetime patches.
@@ -58,11 +65,11 @@ class SarDataset:
         nums = 20
         datetime_patches = {}
 
-        for _dt in np.unique(self.times):
-            _dts = self.dates[self.times == _dt]
+        for _time in self.times:
+            _dts = self.dates[self._times == _time]
             n_patch = np.ceil(len(_dts) / nums)
             dates_patch = np.array_split(_dts, n_patch)
-            datetime_patches[_dt] = dates_patch
+            datetime_patches[_time] = dates_patch
 
         return datetime_patches
 

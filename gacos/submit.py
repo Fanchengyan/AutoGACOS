@@ -15,11 +15,26 @@ class Submitter:
         dataset: SarDataset,
         # download_dir: Union[Path, str],
         email: str,
+        sleep_time_range: tuple[int, int] = (60, 60 * 5),
         gacos_url="http://www.gacos.net/M/action_page.php",
     ) -> None:
+        """Initialize Submitter class
+
+        Parameters
+        ----------
+        dataset : SarDataset
+            The SarDataset object.
+        email : str
+            The email address to submit to gacos.
+        sleep_time_range : tuple[int, int], optional
+            The range of sleep time in seconds. Default is (60, 60 * 5).
+        gacos_url : str, optional
+            The url of gacos website. Default is "http://www.gacos.net/M/action_page.php".
+        """
         self.dataset = dataset
         # self.download_dir = Path(download_dir) #TODO: check if this is needed
         self.email = email
+        self.sleep_time_range = sleep_time_range
         self.gacos_url = gacos_url
 
     def _post_data(self, data):
@@ -46,13 +61,11 @@ class Submitter:
                     else:
                         self.failed.append(post_data)
                         tqdm.write(f">>> failed post: {post_data}")
-                        
+
                 # wait to avoid be rejected
-                sleep_time = np.random.randint(60, 60 * 20)
+                sleep_time = np.random.randint(*self.sleep_time_range)
                 tqdm.write(f"    sleeping for {sleep_time} seconds...")
                 time.sleep(sleep_time)
             except:
                 self.failed.append(post_data)
                 tqdm.write(f">>> failed post: {post_data}")
-
-
