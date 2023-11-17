@@ -1,8 +1,8 @@
 import email
 import email.message
+import getpass
 import imaplib
 import poplib
-import getpass
 import re
 from email.parser import Parser
 from email.utils import parseaddr
@@ -186,11 +186,18 @@ class GACOSEmail:
         else:
             raise ValueError("email_protocol must be 'pop3' or 'imap'.")
 
-        cols = ["url", "south", "north", "west", "east", "time"]
+        cols = ["url", "south", "north", "west", "east", "time", "date"]
         df_gacos = pd.DataFrame(gacos, columns=cols).drop_duplicates(subset="url")
 
         # save to file
-        df_gacos.to_csv(output_file)
+        try:
+            df_gacos.to_csv(output_file)
+            print(f"Save gacos urls to {output_file}")
+        except Exception as e:
+            self.df_gacos = df_gacos
+            print(e)
+            print("Save gacos urls failed")
+            print("You can access the gacos urls by `df_gacos` attribute.")
 
 
 def in_date_range(date, start_date, end_date, date_args={}):
@@ -304,10 +311,20 @@ def parse_gacos_info(msgBodyContents, gacos_suffix="tar.gz"):
         situation that the email contains other urls.
     """
 
-    url, south, north, west, east, date = None, None, None, None, None, None
+    url, south, north, west, east, _time, date_list = (
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    date_list = []
     for contents in msgBodyContents:
         lines = [i.strip() for i in contents.split("\n") if i]
         for line in lines:
+            line = line.strip()
             loc = line.split("=")
             if len(loc) == 2:
                 parameter, value = loc
@@ -325,14 +342,18 @@ def parse_gacos_info(msgBodyContents, gacos_suffix="tar.gz"):
                 parameter, value = loc
                 parameter, value = (parameter.strip(), value.strip())
                 if "Time" == parameter:
-                    date = float(value)
+                    _time = float(value)
+
+            if len(line) == 8 and line.isdigit():
+                date_list.append(line)
+
             for i in ["http", "ftp", "https"]:
                 result = re.search(f"\({i}.*{gacos_suffix}\)", line)
                 if result:
                     url = result.group()[1:-1]
                     break
 
-    if url == south == north == west == east == date:
+    if url == south == north == west == east == _time:
         return None
     else:
-        return url, south, north, west, east, date
+        return url, south, north, west, east, _time, date_list
