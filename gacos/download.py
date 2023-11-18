@@ -75,6 +75,8 @@ class Downloader:
             self.mask = mask_time
         else:
             self.mask = np.ones(self.df_urls.shape[0], dtype=bool)
+            
+        self.mask = self.mask & self.date_mask
 
     def _bbox_mask(self, bounds) -> np.ndarray:
         intersection_bbox = np.array(
@@ -102,6 +104,26 @@ class Downloader:
             )
         intersection_time = np.any(intersection_times, axis=0)
         return intersection_time
+
+    @property
+    def date_mask(self) -> np.ndarray:
+        """Remove urls that all acquisition dates have been downloaded"""
+        dates_urls = self.df_urls["date"].map(lambda x: eval(x))
+        intersection_dates = []
+        for dt_url in dates_urls:
+            intersection_dates.append(~np.all(np.isin(dt_url, self.dates_downloaded)))
+        return np.array(intersection_dates)
+
+    @property
+    def dates_downloaded(self) -> np.ndarray:
+        """Return dates that have been downloaded"""
+        gacos_files = list(self.output_dir.rglob("*.ztd.tif"))
+        dates = []
+        for i in gacos_files:
+            stem = i.stem.split(".")[0]
+            if len(stem) == 8:
+                dates.append(stem)
+        return np.array(dates)
 
     def download(self) -> None:
         """Download GACOS files from URLs in file created by :meth:`GACOSEmail.retrieve_gacos_urls`"""
