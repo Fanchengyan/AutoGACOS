@@ -1,6 +1,6 @@
 import warnings
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -13,13 +13,37 @@ class SarDataset:
     def __init__(
         self,
         bounds: tuple[float, float, float, float],
-        date_time: pd.DatetimeIndex,
+        date_times: pd.DatetimeIndex,
+        gacos_dir: Optional[Union[Path, str]] = None,
     ) -> None:
+        """Initialize SarDataset class
+
+        Parameters
+        ----------
+        bounds : tuple[float, float, float, float]
+            The bounding box of the dataset.
+        date_times : pd.DatetimeIndex
+            The datetime index of the dataset.
+        gacos_dir : Optional[Union[Path, str]], optional
+            The directory used to save gacos data. Used to check if the data is
+            already downloaded and avoid resubmitting. Default is None.
+        """
         self.bounds = bounds
-        self._times = date_time.strftime("%H:%M")
-        self._dates = date_time.strftime("%Y%m%d")
-        self._date_time = date_time
-        self.datetime_patches = self._gen_datetime_patches(date_time)
+        self._date_times = date_times
+
+        self._dates = date_times.strftime("%Y%m%d")
+
+        if gacos_dir is not None:
+            self._dates_remain = self._get_dates_remain(gacos_dir)
+        else:
+            self._dates_remain = self.dates
+
+        hour = date_times.hour
+        minute = np.round((date_times.second / 60) + date_times.minute).astype(int)
+        times = pd.Series([f"{h:02d}:{m:02d}" for h, m in zip(hour, minute)])
+        self._times = times
+        
+        self._times_remain = self._get_times_remain()
 
     def __str__(self) -> str:
         return (
@@ -33,28 +57,62 @@ class SarDataset:
     def __repr__(self) -> str:
         return self.__str__()
 
+    def _get_dates_remain(self, gacos_dir: Union[Path, str]):
+        """Get the dates that are not downloaded yet.
+        Parameters
+        ----------
+        gacos_dir : Union[Path, str]
+            The directory used to save gacos data. Used to check if the data is
+            already downloaded and avoid resubmitting.
+
+        Returns
+        -------
+        dates_remain : np.ndarray
+            The dates that are not downloaded yet.
+        """
+        gacos_files = list(Path(gacos_dir).rglob("*.ztd.tif"))
+        gacos_dates = []
+        for i in gacos_files:
+            stem = i.stem.split(".")[0]
+            if len(stem) == 8:
+                gacos_dates.append(stem)
+        dates_remain = np.setdiff1d(self.dates, gacos_dates)
+        return dates_remain
+
+    def _get_times_remain(self):
+        """Get the times corresponding to the dates that are not downloaded yet."""
+        idx = np.where(np.isin(self.dates, self.dates_remain))[0]
+        times_remain = self._times[idx]
+        return times_remain
+
     @property
     def dates(self):
-        """The dates ('%Y%m%d') of the acquisitions parsed from dataset."""
+        """The dates (YYYYMMDD) of the acquisitions parsed from dataset."""
         return self._dates
 
     @property
     def times(self):
-        """The times ('%H:%M') of the acquisitions parsed from dataset."""
-        return np.unique(self._times)
+        """The times (HH:MM) of the acquisitions parsed from dataset."""
+        return self._times.unique()
 
     @property
     def date_times(self):
         """The datetime of the acquisitions parsed from dataset."""
-        return self._date_time
+        return self._date_times
 
-    def _gen_datetime_patches(self, date_time: pd.DatetimeIndex) -> dict:
+    @property
+    def dates_remain(self):
+        """The dates that are not downloaded yet. If gacos_dir is None, then
+        dates_remain is the same as dates."""
+        return self._dates_remain
+    
+    @property
+    def times_remain(self):
+        """The times corresponding to the dates that are not downloaded yet."""
+        return self._times_remain
+
+    def gen_datetime_patches(self) -> dict:
         """Generate datetime patches.
-
-        Parameters
-        ----------
-        date_time : pd.DatetimeIndex
-            The datetime index.
 
         Returns
         -------
@@ -65,8 +123,8 @@ class SarDataset:
         nums = 20
         datetime_patches = {}
 
-        for _time in self.times:
-            _dts = self.dates[self._times == _time]
+        for _time in self.times_remain:
+            _dts = self.dates_remain[self._times_remain == _time]
             n_patch = np.ceil(len(_dts) / nums)
             dates_patch = np.array_split(_dts, n_patch)
             datetime_patches[_time] = dates_patch
@@ -76,16 +134,16 @@ class SarDataset:
     def gen_post_data(
         self,
         dates: Union[list, np.ndarray],
-        time: Union[tuple[int, int], tuple[str, str]],
+        times: Union[tuple[int, int], tuple[str, str]],
         email: str,
     ):
         """Generate post data for gacos website.
 
         Parameters
         ----------
-        date : list or np.ndarray
+        dates : list or np.ndarray
             The list of dates.
-        time : tuple[int, int]
+        times : tuple[int, int]
             The time of the acquisition (hour, minute).
         email : str
             The email address to receive the gacos data.
@@ -97,15 +155,15 @@ class SarDataset:
         """
         if isinstance(dates, np.ndarray):
             dates = dates.tolist()
-        time = [int(t) for t in time]
+        times = [int(t) for t in times]
 
         post_data = {
             "N": self.bounds[3],
             "W": self.bounds[0],
             "S": self.bounds[1],
             "E": self.bounds[2],
-            "H": time[0],
-            "M": time[1],
+            "H": times[0],
+            "M": times[1],
             "date": "\n".join(dates),
             "type": "2",
             "email": email,
@@ -114,14 +172,28 @@ class SarDataset:
 
 
 class LiCSARDataset(SarDataset):
-    def __init__(self, home_dir: Union[Path, str]) -> None:
+    def __init__(
+        self,
+        home_dir: Union[Path, str],
+        gacos_dir: Optional[Union[Path, str]] = None,
+    ) -> None:
+        """Initialize LiCSARDataset class
+
+        Parameters
+        ----------
+        home_dir : Union[Path, str]
+            The home directory of LiCSAR dataset.
+        gacos_dir : Optional[Union[Path, str]], optional
+            The directory used to save gacos data. Used to check if the data is
+            already downloaded and avoid resubmitting. Default is None.
+        """
         self.home_dir = Path(home_dir)
         self.dataset = LiCSAR(home_dir)
         bounds = self.dataset.bounds
         time = self._get_time()
         dates = self.dataset.pairs.dates
-        date_time = pd.to_datetime([f"{d} {time[0]}:{time[1]}:00" for d in dates])
-        super().__init__(bounds, date_time)
+        date_times = pd.to_datetime([f"{d} {time[0]}:{time[1]}:00" for d in dates])
+        super().__init__(bounds, date_times, gacos_dir)
 
     def _get_time(self):
         """Get the acquisition time of acquisitions.
@@ -157,9 +229,23 @@ class LiCSARDataset(SarDataset):
 
 
 class HyP3Dataset(SarDataset):
-    def __init__(self, home_dir: Union[Path, str]) -> None:
+    def __init__(
+        self,
+        home_dir: Union[Path, str],
+        gacos_dir: Optional[Union[Path, str]] = None,
+    ) -> None:
+        """Initialize HyP3Dataset class
+
+        Parameters
+        ----------
+        home_dir : Union[Path, str]
+            The home directory of HyP3 dataset.
+        gacos_dir : Optional[Union[Path, str]], optional
+            The directory used to save gacos data. Used to check if the data is
+            already downloaded and avoid resubmitting. Default is None.
+        """
         self.dataset = HyP3(home_dir)
         bounds = self.dataset.bounds.to_crs("epsg:4326")
-        date_time = self.dataset.datetime
+        date_times = self.dataset.datetime
 
-        super().__init__(bounds, date_time)
+        super().__init__(bounds, date_times, gacos_dir)
