@@ -1,6 +1,6 @@
 import warnings
 from pathlib import Path
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -42,7 +42,7 @@ class SarDataset:
         minute = np.round((date_times.second / 60) + date_times.minute).astype(int)
         times = pd.Series([f"{h:02d}:{m:02d}" for h, m in zip(hour, minute)])
         self._times = times
-        
+
         self._times_remain = self._get_times_remain()
 
     def __str__(self) -> str:
@@ -105,14 +105,25 @@ class SarDataset:
         """The dates that are not downloaded yet. If gacos_dir is None, then
         dates_remain is the same as dates."""
         return self._dates_remain
-    
+
     @property
     def times_remain(self):
         """The times corresponding to the dates that are not downloaded yet."""
         return self._times_remain
 
-    def gen_datetime_patches(self) -> dict:
+    def gen_datetime_patches(
+        self,
+        mode: Literal["all", "remain"] = "remain",
+    ) -> dict:
         """Generate datetime patches.
+
+        Parameters
+        ----------
+        mode : Literal["all", "remain"], optional
+            The mode to generate datetime patches. If "all", then generate all
+            the datetime patches. If "remain", then generate the datetime
+            patches of the dates that are not downloaded yet. Default is
+            "remain".
 
         Returns
         -------
@@ -123,11 +134,18 @@ class SarDataset:
         nums = 20
         datetime_patches = {}
 
-        for _time in self.times_remain:
-            _dts = self.dates_remain[self._times_remain == _time]
-            n_patch = np.ceil(len(_dts) / nums)
-            dates_patch = np.array_split(_dts, n_patch)
-            datetime_patches[_time] = dates_patch
+        if mode == "all":
+            for _time in self.times:
+                _dts = self.dates[self._times == _time]
+                n_patch = np.ceil(len(_dts) / nums)
+                dates_patch = np.array_split(_dts, n_patch)
+                datetime_patches[_time] = dates_patch
+        elif mode == "remain":
+            for _time in self.times_remain:
+                _dts = self.dates_remain[self._times_remain == _time]
+                n_patch = np.ceil(len(_dts) / nums)
+                dates_patch = np.array_split(_dts, n_patch)
+                datetime_patches[_time] = dates_patch
 
         return datetime_patches
 
